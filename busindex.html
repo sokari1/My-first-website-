@@ -1,0 +1,805 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Business Empire 3D</title>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+<style>
+* { box-sizing:border-box; }
+body {
+  margin:0;
+  background:#101827;
+  color:#fff;
+  font-family:Arial,sans-serif;
+}
+header {
+  background:#17243a;
+  padding:16px;
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  flex-wrap:wrap;
+  gap:10px;
+}
+h1 { margin:0; font-size:21px; color:#55dfa0; }
+button,select {
+  border:0;
+  padding:12px;
+  border-radius:9px;
+  cursor:pointer;
+  font-weight:bold;
+}
+button { background:#21b879; color:#071b15; }
+button:disabled { opacity:.45; cursor:not-allowed; }
+button.secondary { background:#34445e;color:white; }
+button.danger { background:#c65353;color:white; }
+.stats {
+  display:grid;
+  grid-template-columns:repeat(4,1fr);
+  gap:10px;
+  padding:12px;
+}
+.stat {
+  background:#1c2b42;
+  padding:13px;
+  border-radius:10px;
+  min-width:0;
+}
+.stat small { color:#aabbd0; }
+.stat strong {
+  display:block;
+  margin-top:8px;
+  color:#56e3a3;
+  font-size:18px;
+}
+main { padding:12px; }
+.section {
+  background:#19283d;
+  border-radius:12px;
+  padding:15px;
+  margin-bottom:13px;
+}
+.section h2 { font-size:18px;margin-top:0; }
+#city {
+  height:330px;
+  width:100%;
+  background:linear-gradient(#78a8ce,#243e51 75%,#182c31);
+  border-radius:10px;
+  overflow:hidden;
+  position:relative;
+  touch-action:none;
+}
+#city canvas { width:100%;height:100%;display:block; }
+#cityFallback {
+  display:none;
+  padding:30px;
+  text-align:center;
+}
+.buildings {
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:10px;
+}
+.business {
+  background:#263750;
+  border-radius:10px;
+  padding:13px;
+}
+.business h3 { margin:5px 0; }
+.business p { color:#b5c4d7;font-size:13px; }
+.business .income { color:#58e4a2;font-weight:bold; }
+.actions {
+  display:flex;
+  gap:7px;
+  flex-wrap:wrap;
+  margin-top:10px;
+}
+.actions button { flex:1;min-width:100px; }
+.progress {
+  height:9px;
+  background:#35445b;
+  border-radius:20px;
+  overflow:hidden;
+}
+.progress div {
+  height:100%;
+  background:#35d995;
+  width:0%;
+}
+nav {
+  display:flex;
+  gap:7px;
+  overflow-x:auto;
+  padding:10px 12px;
+  background:#142136;
+}
+nav button { white-space:nowrap; }
+nav button.active { background:#55dfa0; }
+.tab { display:none; }
+.tab.active { display:block; }
+#messages {
+  max-height:150px;
+  overflow-y:auto;
+  font-size:13px;
+  color:#b9c9db;
+}
+footer {
+  text-align:center;
+  color:#8294a9;
+  padding:20px;
+  font-size:12px;
+}
+@media(max-width:600px) {
+  .stats { grid-template-columns:repeat(2,1fr); }
+  .buildings { grid-template-columns:1fr; }
+  #city { height:260px; }
+  h1 { font-size:17px; }
+}
+</style>
+</head>
+
+<body>
+
+<header>
+  <h1>🏙️ BUSINESS EMPIRE 3D</h1>
+  <div>
+    <button class="secondary" onclick="saveGame()">💾 Save</button>
+    <button class="secondary" onclick="togglePause()" id="pauseBtn">⏸ Pause</button>
+  </div>
+</header>
+
+<div class="stats">
+  <div class="stat">
+    <small>💰 Cash</small>
+    <strong id="cash">₦100,000</strong>
+  </div>
+  <div class="stat">
+    <small>📈 Net worth</small>
+    <strong id="worth">₦100,000</strong>
+  </div>
+  <div class="stat">
+    <small>⭐ Experience</small>
+    <strong id="xp">0 XP</strong>
+  </div>
+  <div class="stat">
+    <small>🏆 Level</small>
+    <strong id="level">1</strong>
+  </div>
+</div>
+
+<nav>
+  <button class="active" onclick="showTab('cityTab',this)">🏙️ City</button>
+  <button onclick="showTab('businessTab',this)">🏢 Businesses</button>
+  <button onclick="showTab('missionTab',this)">🎯 Missions</button>
+  <button onclick="showTab('financeTab',this)">📊 Finance</button>
+  <button onclick="showTab('achievementTab',this)">🏆 Rewards</button>
+  <button onclick="showTab('settingsTab',this)">⚙️ Settings</button>
+</nav>
+
+<main>
+
+<!-- CITY -->
+<div id="cityTab" class="tab active">
+
+<div class="section">
+  <h2>🌆 Your Business City</h2>
+  <p>Build your company and expand your business empire.</p>
+  <div id="city">
+    <div id="cityFallback">
+      <h2>🏙️ Business District</h2>
+      <p>3D graphics are unavailable. Use the business dashboard below.</p>
+    </div>
+  </div>
+  <p style="font-size:12px;color:#aabbd0">
+    Drag to rotate the city. Use your mouse wheel or touch gestures to zoom.
+  </p>
+</div>
+
+<div class="section">
+  <h2>⚡ Quick Actions</h2>
+  <div class="actions">
+    <button onclick="showTab('businessTab',null)">Buy Business</button>
+    <button onclick="collectBonus()">Collect Bonus</button>
+    <button class="secondary" onclick="saveGame()">Save Progress</button>
+  </div>
+</div>
+
+<div class="section">
+  <h2>📋 Business Activity</h2>
+  <div id="messages">Welcome to Business Empire 3D!</div>
+</div>
+</div>
+
+<!-- BUSINESSES -->
+<div id="businessTab" class="tab">
+<div class="section">
+  <h2>🏢 Business Marketplace</h2>
+  <p>Purchase businesses to generate virtual income.</p>
+  <div id="market" class="buildings"></div>
+</div>
+
+<div class="section">
+  <h2>🏭 Your Companies</h2>
+  <div id="owned" class="buildings"></div>
+</div>
+</div>
+
+<!-- MISSIONS -->
+<div id="missionTab" class="tab">
+<div class="section">
+  <h2>🎯 Career Missions</h2>
+  <div id="missions"></div>
+</div>
+<div class="section">
+  <h2>🎮 Game Modes</h2>
+  <select id="mode" onchange="changeMode(this.value)">
+    <option value="career">Career Mode</option>
+    <option value="free">Free Play Mode</option>
+    <option value="challenge">Challenge Mode</option>
+  </select>
+  <p id="modeInfo">Complete objectives and earn rewards.</p>
+</div>
+</div>
+
+<!-- FINANCE -->
+<div id="financeTab" class="tab">
+<div class="section">
+  <h2>📊 Financial Dashboard</h2>
+  <p>Cash: <strong id="financeCash"></strong></p>
+  <p>Income per cycle: <strong id="income"></strong></p>
+  <p>Expenses per cycle: <strong id="expenses"></strong></p>
+  <p>Profit per cycle: <strong id="profit"></strong></p>
+  <p>Total assets: <strong id="assets"></strong></p>
+  <p>Business ownership: <strong id="ownedCount"></strong></p>
+</div>
+<div class="section">
+  <h2>📈 Business Performance</h2>
+  <div id="performance"></div>
+</div>
+</div>
+
+<!-- ACHIEVEMENTS -->
+<div id="achievementTab" class="tab">
+<div class="section">
+  <h2>🏆 Achievements</h2>
+  <div id="achievements"></div>
+</div>
+<div class="section">
+  <h2>⭐ Player Progress</h2>
+  <p>Experience: <span id="progressXP"></span></p>
+  <div class="progress"><div id="xpBar"></div></div>
+  <p id="nextLevel"></p>
+</div>
+</div>
+
+<!-- SETTINGS -->
+<div id="settingsTab" class="tab">
+<div class="section">
+  <h2>⚙️ Game Settings</h2>
+  <p>Simulation speed</p>
+  <select id="speed" onchange="setSpeed(this.value)">
+    <option value="1">Normal</option>
+    <option value="2">Fast</option>
+    <option value="4">Very Fast</option>
+  </select>
+  <div class="actions">
+    <button onclick="saveGame()">Save Game</button>
+    <button class="secondary" onclick="loadGame()">Load Game</button>
+    <button class="danger" onclick="resetGame()">Reset Game</button>
+  </div>
+  <p>Game progress is saved locally in this browser.</p>
+</div>
+</div>
+
+</main>
+
+<footer>
+Business Empire 3D · Virtual Business Simulation · Version 1.0
+</footer>
+
+<script>
+/* GAME DATA */
+
+const catalog = [
+ {id:"shop",name:"Corner Shop",icon:"🏪",cost:20000,income:3500,expense:500,desc:"Start your retail journey."},
+ {id:"cafe",name:"Coffee Shop",icon:"☕",cost:50000,income:8000,expense:1500,desc:"Serve customers and grow."},
+ {id:"supermarket",name:"Supermarket",icon:"🛒",cost:100000,income:16000,expense:3500,desc:"Manage a large retail store."},
+ {id:"factory",name:"Factory",icon:"🏭",cost:250000,income:40000,expense:12000,desc:"Produce goods for the market."},
+ {id:"tech",name:"Technology Company",icon:"💻",cost:400000,income:65000,expense:18000,desc:"Build innovative products."}
+];
+
+let game = {
+ cash:100000,
+ xp:0,
+ level:1,
+ businesses:[],
+ employees:0,
+ mode:"career",
+ speed:1,
+ paused:false,
+ bonusCollected:false,
+ achievements:[],
+ completed:[],
+ totalEarned:0,
+ cycles:0
+};
+
+let scene,camera,renderer,buildings=[];
+let lastTick=Date.now();
+
+/* UTILITIES */
+
+function money(n) {
+ return "₦"+Math.floor(n).toLocaleString("en-NG");
+}
+
+function log(message) {
+ const box=document.getElementById("messages");
+ box.innerHTML="<div>• "+message+"</div>"+box.innerHTML;
+}
+
+function totalIncome() {
+ return game.businesses.reduce((s,b)=>{
+  const data=catalog.find(x=>x.id===b.id);
+  return s+data.income*(1+b.level*.25);
+ },0);
+}
+
+function totalExpenses() {
+ return game.businesses.reduce((s,b)=>{
+  const data=catalog.find(x=>x.id===b.id);
+  return s+data.expense*(1+b.level*.15);
+ },0)+game.employees*250;
+}
+
+function totalAssets() {
+ return game.businesses.reduce((s,b)=>{
+  const data=catalog.find(x=>x.id===b.id);
+  return s+data.cost*(1+b.level*.2);
+ },0);
+}
+
+function netWorth() {
+ return game.cash+totalAssets();
+}
+
+function addXP(amount) {
+ game.xp+=amount;
+ while(game.xp>=game.level*100) {
+  game.xp-=game.level*100;
+  game.level++;
+  log("🎉 Level "+game.level+" unlocked!");
+ }
+}
+
+/* NAVIGATION */
+
+function showTab(id,btn) {
+ document.querySelectorAll(".tab").forEach(x=>x.classList.remove("active"));
+ document.getElementById(id).classList.add("active");
+ document.querySelectorAll("nav button").forEach(x=>x.classList.remove("active"));
+ if(btn) btn.classList.add("active");
+ render();
+}
+
+/* MARKETPLACE */
+
+function buyBusiness(id) {
+ const data=catalog.find(x=>x.id===id);
+ if(!data) return;
+
+ if(game.businesses.some(b=>b.id===id)) {
+  alert("You already own this business. Upgrade it instead.");
+  return;
+ }
+
+ if(game.cash<data.cost) {
+  alert("Not enough virtual cash!");
+  return;
+ }
+
+ game.cash-=data.cost;
+ game.businesses.push({id:id,level:0,employees:0});
+ addXP(40);
+ log("Purchased "+data.name+"!");
+ render();
+ createBuilding();
+}
+
+function upgradeBusiness(id) {
+ const b=game.businesses.find(x=>x.id===id);
+ if(!b) return;
+
+ const data=catalog.find(x=>x.id===id);
+ const cost=Math.floor(data.cost*.6*(b.level+1));
+
+ if(game.cash<cost) {
+  alert("Not enough cash for this upgrade.");
+  return;
+ }
+
+ game.cash-=cost;
+ b.level++;
+ addXP(25);
+ log(data.name+" upgraded to level "+(b.level+1));
+ render();
+}
+
+function hireEmployee(id) {
+ const b=game.businesses.find(x=>x.id===id);
+ if(!b) return;
+
+ if(game.cash<5000) {
+  alert("You need ₦5,000 to hire an employee.");
+  return;
+ }
+
+ game.cash-=5000;
+ b.employees++;
+ game.employees++;
+ addXP(10);
+ log("Employee hired for "+catalog.find(x=>x.id===id).name);
+ render();
+}
+
+/* SIMULATION */
+
+function simulate() {
+ if(game.paused) return;
+
+ const income=totalIncome();
+ const expenses=totalExpenses();
+ const profit=income-expenses;
+
+ game.cash+=profit*game.speed;
+ if(profit>0) game.totalEarned+=profit*game.speed;
+
+ game.cycles++;
+ updateMissions();
+ checkAchievements();
+ render();
+}
+
+function collectBonus() {
+ if(game.bonusCollected) {
+  alert("Your bonus has already been collected!");
+  return;
+ }
+
+ game.cash+=5000;
+ game.bonusCollected=true;
+ addXP(10);
+ log("Collected a ₦5,000 welcome bonus!");
+ render();
+}
+
+function togglePause() {
+ game.paused=!game.paused;
+ document.getElementById("pauseBtn").innerText=
+ game.paused?"▶ Resume":"⏸ Pause";
+}
+
+function setSpeed(v) {
+ game.speed=Number(v);
+}
+
+function changeMode(v) {
+ game.mode=v;
+ const descriptions={
+  career:"Complete missions and build your company.",
+  free:"Explore business opportunities at your own pace.",
+  challenge:"Build your empire while managing your resources."
+ };
+ document.getElementById("modeInfo").innerText=descriptions[v];
+}
+
+/* MISSIONS */
+
+const missionList=[
+ {id:1,title:"First Business",desc:"Purchase your first business.",check:()=>game.businesses.length>=1,reward:100},
+ {id:2,title:"Business Expansion",desc:"Own three businesses.",check:()=>game.businesses.length>=3,reward:200},
+ {id:3,title:"Employ Your Team",desc:"Hire two employees.",check:()=>game.employees>=2,reward:150},
+ {id:4,title:"Business Upgrade",desc:"Upgrade a business.",check:()=>game.businesses.some(b=>b.level>=1),reward:200},
+ {id:5,title:"Millionaire Goal",desc:"Reach ₦1,000,000 in net worth.",check:()=>netWorth()>=1000000,reward:500}
+];
+
+function updateMissions() {
+ missionList.forEach(m=>{
+  if(m.check()&&!game.completed.includes(m.id)) {
+   game.completed.push(m.id);
+   game.cash+=m.reward;
+   addXP(50);
+   log("Mission completed: "+m.title+"! Reward: "+money(m.reward));
+  }
+ });
+}
+
+function checkAchievements() {
+ const checks=[
+  {id:"first",title:"First Steps",check:()=>game.businesses.length>=1},
+  {id:"team",title:"Team Builder",check:()=>game.employees>=3},
+  {id:"empire",title:"Business Empire",check:()=>game.businesses.length>=5},
+  {id:"rich",title:"Growing Empire",check:()=>netWorth()>=500000},
+  {id:"upgrade",title:"Improvement Expert",check:()=>game.businesses.some(b=>b.level>=2)}
+ ];
+
+ checks.forEach(a=>{
+  if(a.check()&&!game.achievements.includes(a.id)) {
+   game.achievements.push(a.id);
+   addXP(30);
+   log("🏆 Achievement unlocked: "+a.title);
+  }
+ });
+}
+
+/* RENDERING */
+
+function render() {
+ document.getElementById("cash").innerText=money(game.cash);
+ document.getElementById("worth").innerText=money(netWorth());
+ document.getElementById("xp").innerText=game.xp+" XP";
+ document.getElementById("level").innerText=game.level;
+
+ document.getElementById("financeCash").innerText=money(game.cash);
+ document.getElementById("income").innerText=money(totalIncome());
+ document.getElementById("expenses").innerText=money(totalExpenses());
+ document.getElementById("profit").innerText=money(totalIncome()-totalExpenses());
+ document.getElementById("assets").innerText=money(totalAssets());
+ document.getElementById("ownedCount").innerText=game.businesses.length;
+
+ document.getElementById("progressXP").innerText=game.xp;
+ document.getElementById("xpBar").style.width=
+ (game.xp/(game.level*100)*100)+"%";
+ document.getElementById("nextLevel").innerText=
+ "Next level: "+(game.level*100)+" XP";
+
+ document.getElementById("market").innerHTML=catalog.map(b=>{
+  const owned=game.businesses.some(x=>x.id===b.id);
+  return `<div class="business">
+   <h3>${b.icon} ${b.name}</h3>
+   <p>${b.desc}</p>
+   <p>Purchase: ${money(b.cost)}</p>
+   <p class="income">Income/cycle: ${money(b.income)}</p>
+   <p>Expenses/cycle: ${money(b.expense)}</p>
+   <button ${owned?"disabled":""} onclick="buyBusiness('${b.id}')">
+    ${owned?"Owned":"Purchase"}
+   </button>
+  </div>`;
+ }).join("");
+
+ document.getElementById("owned").innerHTML=
+ game.businesses.length?game.businesses.map(b=>{
+  const d=catalog.find(x=>x.id===b.id);
+  return `<div class="business">
+   <h3>${d.icon} ${d.name}</h3>
+   <p>Level: ${b.level+1}</p>
+   <p>Employees: ${b.employees}</p>
+   <p class="income">Income: ${money(d.income*(1+b.level*.25))}</p>
+   <div class="actions">
+    <button onclick="upgradeBusiness('${b.id}')">Upgrade</button>
+    <button class="secondary" onclick="hireEmployee('${b.id}')">Hire</button>
+   </div>
+  </div>`;
+ }).join(""):"<p>You have not purchased any businesses yet.</p>";
+
+ document.getElementById("missions").innerHTML=missionList.map(m=>{
+  const done=game.completed.includes(m.id);
+  return `<div class="business" style="margin-bottom:10px">
+   <h3>${done?"✅":"🎯"} ${m.title}</h3>
+   <p>${m.desc}</p>
+   <p>Reward: ${money(m.reward)} + 50 XP</p>
+   <strong>${done?"Completed":"In progress"}</strong>
+  </div>`;
+ }).join("");
+
+ const names={
+  first:"First Steps",
+  team:"Team Builder",
+  empire:"Business Empire",
+  rich:"Growing Empire",
+  upgrade:"Improvement Expert"
+ };
+ document.getElementById("achievements").innerHTML=
+ Object.keys(names).map(id=>
+ `<p>${game.achievements.includes(id)?"🏆":"🔒"} ${names[id]}</p>`
+ ).join("");
+
+ document.getElementById("performance").innerHTML=
+ game.businesses.map(b=>{
+  const d=catalog.find(x=>x.id===b.id);
+  return `<p>${d.name}: Level ${b.level+1}</p>`;
+ }).join("")||"No businesses to analyse yet.";
+}
+
+/* SAVE AND LOAD */
+
+function saveGame() {
+ try {
+  localStorage.setItem("businessEmpire3D",JSON.stringify(game));
+  log("Game successfully saved.");
+ } catch(e) {
+  alert("Unable to save game in this browser.");
+ }
+}
+
+function loadGame() {
+ const data=localStorage.getItem("businessEmpire3D");
+ if(!data) {
+  alert("No saved game found.");
+  return;
+ }
+ try {
+  game={...game,...JSON.parse(data)};
+  render();
+  log("Saved game loaded.");
+  createCity();
+ } catch(e) {
+  alert("The saved game could not be loaded.");
+ }
+}
+
+function resetGame() {
+ if(!confirm("Reset all your game progress? This cannot be undone."))return;
+ localStorage.removeItem("businessEmpire3D");
+ location.reload();
+}
+
+/* THREE.JS CITY */
+
+function createCity() {
+ const container=document.getElementById("city");
+ if(!window.THREE) {
+  document.getElementById("cityFallback").style.display="block";
+  return;
+ }
+
+ if(renderer) {
+  renderer.dispose();
+  container.innerHTML="";
+ }
+
+ try {
+  scene=new THREE.Scene();
+  scene.background=new THREE.Color(0x83b6d8);
+
+  camera=new THREE.PerspectiveCamera(
+   45,container.clientWidth/container.clientHeight,.1,1000
+  );
+  camera.position.set(10,13,19);
+  camera.lookAt(0,0,0);
+
+  renderer=new THREE.WebGLRenderer({antialias:true});
+  renderer.setSize(container.clientWidth,container.clientHeight);
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio,2));
+  container.appendChild(renderer.domElement);
+
+  scene.add(new THREE.HemisphereLight(0xffffff,0x405040,2));
+
+  const light=new THREE.DirectionalLight(0xffffff,2);
+  light.position.set(8,20,10);
+  scene.add(light);
+
+  const ground=new THREE.Mesh(
+   new THREE.PlaneGeometry(100,100),
+   new THREE.MeshStandardMaterial({color:0x547d50})
+  );
+  ground.rotation.x=-Math.PI/2;
+  ground.position.y=-.2;
+  scene.add(ground);
+
+  // Roads
+  const road=new THREE.Mesh(
+   new THREE.PlaneGeometry(100,5),
+   new THREE.MeshStandardMaterial({color:0x333b43})
+  );
+  road.rotation.x=-Math.PI/2;
+  road.position.y=-.1;
+  scene.add(road);
+
+  // City buildings
+  const colors=[0x9cabbc,0x477e9b,0xb2a184,0x678b82];
+  for(let i=0;i<14;i++) {
+   const h=2+Math.random()*8;
+   const mesh=new THREE.Mesh(
+    new THREE.BoxGeometry(2,h,2),
+    new THREE.MeshStandardMaterial({
+     color:colors[i%colors.length],
+     roughness:.7
+    })
+   );
+   mesh.position.set(
+    (i%7)*4-12,h/2,(i<7?-7:7)
+   );
+   scene.add(mesh);
+  }
+
+  createBuilding();
+
+  let dragging=false,previousX=0,previousY=0;
+  renderer.domElement.addEventListener("pointerdown",e=>{
+   dragging=true;
+   previousX=e.clientX;
+   previousY=e.clientY;
+  });
+  window.addEventListener("pointerup",()=>dragging=false);
+  renderer.domElement.addEventListener("pointermove",e=>{
+   if(!dragging)return;
+   const dx=e.clientX-previousX;
+   const dy=e.clientY-previousY;
+   previousX=e.clientX;
+   previousY=e.clientY;
+   scene.rotation.y+=dx*.006;
+   camera.position.y=Math.max(5,Math.min(25,camera.position.y-dy*.04));
+  });
+  renderer.domElement.addEventListener("wheel",e=>{
+   camera.position.z=Math.max(9,Math.min(35,camera.position.z+e.deltaY*.02));
+  },{passive:true});
+
+  animate();
+ } catch(e) {
+  document.getElementById("cityFallback").style.display="block";
+  console.warn("3D graphics unavailable:",e);
+ }
+}
+
+function createBuilding() {
+ if(!scene)return;
+ buildings.forEach(b=>scene.remove(b));
+ buildings=[];
+
+ game.businesses.forEach((b,i)=>{
+  const h=2+b.level*1.5;
+  const mesh=new THREE.Mesh(
+   new THREE.BoxGeometry(2.5,h,2.5),
+   new THREE.MeshStandardMaterial({
+    color:[0x27b879,0x478ac4,0xd6a344,0x8b72cb,0x44c3bf][i%5]
+   })
+  );
+  mesh.position.set((i%3)*5-5,h/2+0.1,(Math.floor(i/3))*5-1);
+  scene.add(mesh);
+  buildings.push(mesh);
+ });
+}
+
+function animate() {
+ if(!renderer)return;
+ requestAnimationFrame(animate);
+ renderer.render(scene,camera);
+}
+
+window.addEventListener("resize",()=>{
+ if(!renderer)return;
+ const c=document.getElementById("city");
+ camera.aspect=c.clientWidth/c.clientHeight;
+ camera.updateProjectionMatrix();
+ renderer.setSize(c.clientWidth,c.clientHeight);
+});
+
+/* START GAME */
+
+function startGame() {
+ const saved=localStorage.getItem("businessEmpire3D");
+ if(saved) {
+  try {
+   game={...game,...JSON.parse(saved)};
+  } catch(e) {
+   console.warn("Invalid saved game.");
+  }
+ }
+
+ render();
+ createCity();
+
+ setInterval(simulate,5000);
+ setInterval(saveGame,30000);
+}
+
+startGame();
+</script>
+
+</body>
+</html>
